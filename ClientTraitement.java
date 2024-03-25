@@ -21,7 +21,7 @@ public class ClientTraitement implements Runnable {
                 String[] tokens = ligne.split(" ");
                 if (tokens.length >= 3 && tokens[0].equals("GET")) {
                     String cheminRelatif = tokens[1];
-                    Path dossierRacine = Paths.get("dossierRacine"); // Remplacez par votre chemin réel
+                    Path dossierRacine = Paths.get("dossierRacine");
 
                     Path cheminDemande = dossierRacine.resolve(cheminRelatif.substring(1)).normalize();
                     if (!cheminDemande.startsWith(dossierRacine)) {
@@ -53,7 +53,36 @@ public class ClientTraitement implements Runnable {
                                     .collect(Collectors.joining());
 
                             sortie.write("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<html><head>" + style + "</head><body><ul>" + filesList + "</ul><hr><ul>" + dirsList + "</ul></body></html>");
-                        } else {
+                        } else if (cheminDemande.toString().endsWith(".py")) {
+                                // Exécuter le script Python et récupérer la sortie
+                            try{
+                                ProcessBuilder pb = new ProcessBuilder("/usr/bin/python3", cheminDemande.toString());
+                                Process p = pb.start();
+
+                                BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                                String line;
+                                StringBuilder pythonOutput = new StringBuilder();
+                                while ((line = br.readLine()) != null) {
+                                    pythonOutput.append(line).append(System.lineSeparator());
+                                }
+
+                                int exitCode = p.waitFor(); // Attendez que le script Python se termine
+                                if (exitCode == 0) {
+                                    sortie.write("HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n");
+                                    sortie.write(pythonOutput.toString());
+                                } else {
+                                    // Gérer l'erreur si le script Python échoue
+                                    sortie.write("HTTP/1.1 500 Internal Server Error\r\n\r\n<h1>500 Internal Server Error</h1>");
+                                }
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt(); // Réinterrompre le thread
+                                sortie.write("HTTP/1.1 500 Internal Server Error\r\n\r\n<h1>500 Internal Server Error</h1>");
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+
+                            else{
                             byte[] contenuFichier = Files.readAllBytes(cheminDemande);
                             String typeMIME = Files.probeContentType(cheminDemande);
 
@@ -72,7 +101,8 @@ public class ClientTraitement implements Runnable {
             }
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
+        }
+        finally {
             try {
                 socketClient.close();
             } catch (IOException e) {

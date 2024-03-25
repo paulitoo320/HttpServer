@@ -20,6 +20,6 @@ public class HttpServer {
 
     public static void main(String[] args) throws IOException {
         HttpServer serveur = new HttpServer();
-        serveur.demarrer(8080); // Port modifiable selon les besoins
+        serveur.demarrer(8080);
     }
 }
